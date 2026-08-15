@@ -15,6 +15,7 @@ The README carries the design.
 
 - **MathML carries no font information:**
   Typst's HTML export emits the same MathML whatever `#set text(font: ...)` says,
+  and whatever fonts the world holds,
   so appearance is a CSS concern and never a Typst one.
 - **`doc(...)` is rustc's namespace:**
   unknown keys inside it are an error, and a crate-level attribute macro needs unstable
