@@ -5,10 +5,33 @@ use typst::syntax::SyntaxMode;
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlOptions, HtmlTag, tag};
 
 use crate::error::Error;
+use crate::files::Files;
+use crate::fonts::Fonts;
+use crate::world::FragmentWorld;
+
+/// Renders the fragments of one crate.
+pub struct Renderer {
+    world: FragmentWorld,
+}
+
+impl Renderer {
+    pub fn new(files: impl Files + 'static, fonts: Fonts) -> Self {
+        Self {
+            world: FragmentWorld::new(files, fonts),
+        }
+    }
+
+    pub fn render(&mut self, source: &str, mode: SyntaxMode) -> Result<Rendered, Error> {
+        self.world.set_main(wrap(source, mode));
+        let compiled = typst::compile::<HtmlDocument>(&self.world);
+        let document = compiled.output.map_err(Error::Compile)?;
+        extract(&document)
+    }
+}
 
 /// A rendered fragment.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Fragment {
+pub struct Rendered {
     /// The HTML, ready to be spliced into a rustdoc page.
     pub html: String,
     /// What a page carrying this fragment needs beyond that HTML.
@@ -30,7 +53,7 @@ pub struct Assets {
 /// A Typst file is markup at its top level, so a mode is entered by the
 /// delimiters that enter it. The source keeps whatever spacing it was written
 /// with, which is what tells `$x$` from `$ x $`.
-pub fn wrap(source: &str, mode: SyntaxMode) -> String {
+fn wrap(source: &str, mode: SyntaxMode) -> String {
     match mode {
         SyntaxMode::Markup => source.into(),
         SyntaxMode::Math => format!("${source}$"),
@@ -42,7 +65,7 @@ pub fn wrap(source: &str, mode: SyntaxMode) -> String {
 ///
 /// Typst exports a whole page: the fragment is the body, and the resources it
 /// needs are what Typst put in the head for it.
-pub fn extract(document: &HtmlDocument) -> Result<Fragment, Error> {
+fn extract(document: &HtmlDocument) -> Result<Rendered, Error> {
     let root = document.root();
     let head = child(root, tag::head).ok_or(Error::UnexpectedOutput)?;
     let body = child(root, tag::body).ok_or(Error::UnexpectedOutput)?;
@@ -55,7 +78,7 @@ pub fn extract(document: &HtmlDocument) -> Result<Fragment, Error> {
         .filter_map(|element| text(element.children.first()))
         .collect();
 
-    Ok(Fragment {
+    Ok(Rendered {
         html: encode(document, body)?,
         assets: Assets { styles },
     })
