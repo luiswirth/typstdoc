@@ -63,7 +63,11 @@ through `#![doc(enable(tex_math_dollars))]`, rendered to MathML by
 [math-core](https://github.com/tmke8/math-core).
 typstdoc follows that design with Typst as the source language.
 
-It stays out of tree, since `doc(...)` is rustc's namespace,
+That RFC rejected Typst for lacking an implementation-agnostic specification,
+while its own future possibilities name `doc(syntax = "typst")` as an extension of the same grammar.
+Mirroring its design keeps the question open.
+
+typstdoc stays out of tree, since `doc(...)` is rustc's namespace,
 so the attribute is its own and applies per module:
 
 ```rust
