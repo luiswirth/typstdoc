@@ -1,0 +1,105 @@
+use typst::comemo::Track;
+use typst::ecow::EcoString;
+use typst::model::LateLinkResolver;
+use typst::syntax::SyntaxMode;
+use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlOptions, HtmlTag, tag};
+
+use crate::error::Error;
+
+/// A rendered fragment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fragment {
+    /// The HTML, ready to be spliced into a rustdoc page.
+    pub html: String,
+    /// What a page carrying this fragment needs beyond that HTML.
+    pub assets: Assets,
+}
+
+/// The resources a page needs for the fragments on it.
+///
+/// A fragment reports what it needs rather than emitting it, so that a page
+/// carrying many fragments links each resource once.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Assets {
+    /// Stylesheets, as Typst writes them into the document head.
+    pub styles: Vec<EcoString>,
+}
+
+/// Wraps a fragment into markup.
+///
+/// A Typst file is markup at its top level, so a mode is entered by the
+/// delimiters that enter it. The source keeps whatever spacing it was written
+/// with, which is what tells `$x$` from `$ x $`.
+pub fn wrap(source: &str, mode: SyntaxMode) -> String {
+    match mode {
+        SyntaxMode::Markup => source.into(),
+        SyntaxMode::Math => format!("${source}$"),
+        SyntaxMode::Code => format!("#{{{source}}}"),
+    }
+}
+
+/// Reads a fragment out of a compiled document.
+///
+/// Typst exports a whole page: the fragment is the body, and the resources it
+/// needs are what Typst put in the head for it.
+pub fn extract(document: &HtmlDocument) -> Result<Fragment, Error> {
+    let root = document.root();
+    let head = child(root, tag::head).ok_or(Error::UnexpectedOutput)?;
+    let body = child(root, tag::body).ok_or(Error::UnexpectedOutput)?;
+
+    let styles = head
+        .children
+        .iter()
+        .filter_map(element_of)
+        .filter(|element| element.tag == tag::style)
+        .filter_map(|element| text(element.children.first()))
+        .collect();
+
+    Ok(Fragment {
+        html: encode(document, body)?,
+        assets: Assets { styles },
+    })
+}
+
+/// Encodes the children of an element.
+///
+/// Every encoder typst-html exposes writes a whole document, so the fragment is
+/// what remains once the document around it is taken off again. The affixes are
+/// constants of the encoder, and failing to find them means it no longer writes
+/// what typstdoc reads.
+fn encode(document: &HtmlDocument, element: &HtmlElement) -> Result<String, Error> {
+    let resolver = LateLinkResolver::new(None, document.introspector().as_ref());
+    let options = HtmlOptions { pretty: false };
+    let encoded =
+        typst_html::html_in_bundle(element, &options, resolver.track()).map_err(Error::Compile)?;
+
+    let tag = element.tag.resolve();
+    encoded
+        .strip_prefix("<!DOCTYPE html>")
+        .and_then(|rest| rest.strip_prefix(&format!("<{tag}>")))
+        .and_then(|rest| rest.strip_suffix(&format!("</{tag}>")))
+        .map(String::from)
+        .ok_or(Error::UnexpectedOutput)
+}
+
+fn child(element: &HtmlElement, tag: HtmlTag) -> Option<&HtmlElement> {
+    element
+        .children
+        .iter()
+        .filter_map(element_of)
+        .find(|child| child.tag == tag)
+}
+
+fn element_of(node: &HtmlNode) -> Option<&HtmlElement> {
+    match node {
+        HtmlNode::Element(element) => Some(element),
+        _ => None,
+    }
+}
+
+fn text(node: Option<&HtmlNode>) -> Option<EcoString> {
+    match node? {
+        HtmlNode::Text(text, _) => Some(text.clone()),
+        _ => None,
+    }
+}

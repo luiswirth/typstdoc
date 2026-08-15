@@ -5,3 +5,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+
+[features]
+default = ["embedded-fonts"]
+embedded-fonts = ["typst-assets/fonts"]
+
+[dependencies]
+typst = "0.15.1"
+typst-assets = "0.15.1"
+typst-html = "0.15.1"
