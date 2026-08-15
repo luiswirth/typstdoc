@@ -50,6 +50,7 @@
           (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
           bacon
           cargo-edit
+          typst
         ];
       };
     });
