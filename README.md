@@ -34,6 +34,28 @@ which are collected per page instead of emitted everywhere.
 `typstdoc-core` holds all of this and is an ordinary library.
 `typstdoc` is the proc macro over it.
 
+## Preamble
+
+A `typstdoc.typ` at the crate root is prepended to every fragment,
+so show rules, `#let` shorthands and imported notation hold across all doc comments:
+
+```typst
+#import "@local/dottyp:0.1.0": *
+#let inner(a, b) = $lr(angle.l #a, #b angle.r)$
+```
+
+It is an ordinary Typst file, so `typst compile` checks it on its own.
+
+## Fonts
+
+Typst embeds New Computer Modern and its math font, Libertinus Serif and DejaVu Sans Mono.
+NewCM Sans and NewCM Sans Math ship with typstdoc.
+
+Which font a page uses is CSS, configured under `[package.metadata.typstdoc]`.
+MathML encodes the structure of an equation and leaves its appearance to the browser,
+so Typst's output is the same whatever `#set text(font: ...)` says,
+and setting a font in the preamble has no effect on it.
+
 ## Relation to rustdoc
 
 [RFC 3958](https://github.com/rust-lang/rfcs/pull/3958) adds LaTeX math to rustdoc
