@@ -1,0 +1,13 @@
+[package]
+name = "typstdoc"
+description = "Typst notation in Rust doc comments"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+typstdoc-core = { path = "../typstdoc-core", version = "0.0.0" }
