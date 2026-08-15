@@ -1,7 +1,7 @@
-use typstdoc_core::{Files, Fonts, Renderer, SyntaxMode};
+use typstdoc_core::{Directories, Fonts, Renderer, SyntaxMode};
 
 fn renderer() -> Renderer {
-    Renderer::new(Files::none(), Fonts::embedded())
+    Renderer::new(Directories::default(), Fonts::embedded())
 }
 
 fn render(source: &str, mode: SyntaxMode) -> String {
@@ -87,7 +87,7 @@ fn mathml_does_not_depend_on_the_fonts() {
     let with = renderer()
         .render("integral_Omega alpha", SyntaxMode::Math)
         .unwrap();
-    let without = Renderer::new(Files::none(), Fonts::new(Vec::new()))
+    let without = Renderer::new(Directories::default(), Fonts::new(Vec::new()))
         .render("integral_Omega alpha", SyntaxMode::Math)
         .unwrap();
     assert_eq!(with, without);

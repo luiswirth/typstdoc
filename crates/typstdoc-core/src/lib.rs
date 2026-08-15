@@ -15,7 +15,7 @@ mod world;
 pub use typst::syntax::SyntaxMode;
 
 pub use self::error::Error;
-pub use self::files::Files;
+pub use self::files::{Directories, Files};
 pub use self::fonts::Fonts;
 pub use self::fragment::{Assets, Fragment};
 
@@ -29,7 +29,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(files: Files, fonts: Fonts) -> Self {
+    pub fn new(files: impl Files + 'static, fonts: Fonts) -> Self {
         Self {
             world: FragmentWorld::new(files, fonts),
         }

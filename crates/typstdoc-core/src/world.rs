@@ -18,7 +18,7 @@ use crate::fonts::Fonts;
 pub struct FragmentWorld {
     library: LazyHash<Library>,
     fonts: Fonts,
-    files: Files,
+    files: Box<dyn Files>,
     main: Source,
     cache: Mutex<Cache>,
 }
@@ -30,7 +30,7 @@ struct Cache {
 }
 
 impl FragmentWorld {
-    pub fn new(files: Files, fonts: Fonts) -> Self {
+    pub fn new(files: impl Files + 'static, fonts: Fonts) -> Self {
         let library = Library::builder()
             .with_features(Features::from_iter([Feature::Html]))
             .build();
@@ -44,7 +44,7 @@ impl FragmentWorld {
         Self {
             library: LazyHash::new(library),
             fonts,
-            files,
+            files: Box::new(files),
             main: Source::new(main, String::new()),
             cache: Mutex::new(Cache::default()),
         }

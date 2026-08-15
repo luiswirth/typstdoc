@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
@@ -8,61 +7,56 @@ use typst::syntax::{FileId, VirtualRoot};
 /// The file system a fragment is compiled against.
 ///
 /// What a build can reach is a property of the build and not of typstdoc:
-/// a docs.rs build is sandboxed and offline, where a local `cargo doc`
-/// reaches the packages the author has installed.
-/// Resolution is therefore a function the caller supplies.
-#[derive(Clone)]
-pub struct Files(Arc<dyn Fn(FileId) -> FileResult<Bytes> + Send + Sync>);
-
-impl Files {
-    pub fn new(read: impl Fn(FileId) -> FileResult<Bytes> + Send + Sync + 'static) -> Self {
-        Self(Arc::new(read))
-    }
-
-    /// Resolves nothing, the identity of [`Files::or`].
-    pub fn none() -> Self {
-        Self::new(|id| Err(not_found(id)))
-    }
-
-    /// Resolves project files against a directory, and no package.
-    pub fn directory(root: impl Into<PathBuf>) -> Self {
-        let root = root.into();
-        Self::new(move |id| match id.root() {
-            VirtualRoot::Project => read(&id.vpath().realize(&root)?),
-            VirtualRoot::Package(_) => Err(not_found(id)),
-        })
-    }
-
-    /// Resolves packages against a directory laid out as
-    /// `<root>/<namespace>/<name>/<version>`, which is how Typst
-    /// stores them under its data directory, and no project file.
-    pub fn packages(root: impl Into<PathBuf>) -> Self {
-        let root = root.into();
-        Self::new(move |id| match id.root() {
-            VirtualRoot::Package(spec) => {
-                let root = root
-                    .join(spec.namespace.as_str())
-                    .join(spec.name.as_str())
-                    .join(spec.version.to_string());
-                read(&id.vpath().realize(&root)?)
-            }
-            VirtualRoot::Project => Err(not_found(id)),
-        })
-    }
-
-    /// Falls back to `other` wherever `self` finds no file.
+/// a docs.rs build is sandboxed and offline, where a local `cargo doc` reaches
+/// the packages the author has installed.
+pub trait Files: Send + Sync {
+    /// Reads the file the id names.
     ///
-    /// An error other than a miss stops the search, so a permission problem
-    /// surfaces rather than turning into a missing file further along.
-    pub fn or(self, other: Files) -> Self {
-        Self::new(move |id| match self.read(id) {
-            Err(FileError::NotFound(_)) => other.read(id),
-            result => result,
-        })
-    }
+    /// A file that is not there is a [`FileError::NotFound`], which is what
+    /// tells a miss from a failure when several places are searched.
+    fn read(&self, id: FileId) -> FileResult<Bytes>;
+}
 
-    pub fn read(&self, id: FileId) -> FileResult<Bytes> {
-        (self.0)(id)
+/// Reads files from directories, in Typst's own layout.
+///
+/// A project file lives under a project root at its own path, and a package
+/// under a package root at `<root>/<namespace>/<name>/<version>`. Typst keeps
+/// installed packages under its data directory and downloaded ones under its
+/// cache directory, so a build usually has more than one package root.
+///
+/// The default reads nothing, having nowhere to read from.
+#[derive(Debug, Default, Clone)]
+pub struct Directories {
+    pub project: Option<PathBuf>,
+    /// Searched in order.
+    pub packages: Vec<PathBuf>,
+}
+
+impl Files for Directories {
+    fn read(&self, id: FileId) -> FileResult<Bytes> {
+        self.roots(id.root())
+            .into_iter()
+            .map(|root| read(&id.vpath().realize(&root)?))
+            .find(|result| !matches!(result, Err(FileError::NotFound(_))))
+            .unwrap_or_else(|| Err(not_found(id)))
+    }
+}
+
+impl Directories {
+    /// The directories a file with the given root may lie in, in search order.
+    fn roots(&self, root: &VirtualRoot) -> Vec<PathBuf> {
+        match root {
+            VirtualRoot::Project => self.project.iter().cloned().collect(),
+            VirtualRoot::Package(spec) => self
+                .packages
+                .iter()
+                .map(|root| {
+                    root.join(spec.namespace.as_str())
+                        .join(spec.name.as_str())
+                        .join(spec.version.to_string())
+                })
+                .collect(),
+        }
     }
 }
 
