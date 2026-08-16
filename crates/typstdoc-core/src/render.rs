@@ -57,6 +57,19 @@ pub struct Assets {
     pub styles: Vec<EcoString>,
 }
 
+impl Assets {
+    /// Takes in what another fragment on the same page needs.
+    ///
+    /// A resource two fragments need is one resource, so it is kept once.
+    pub fn absorb(&mut self, other: Assets) {
+        for style in other.styles {
+            if !self.styles.contains(&style) {
+                self.styles.push(style);
+            }
+        }
+    }
+}
+
 /// Wraps a fragment into the markup that is compiled.
 ///
 /// A Typst file is markup at its top level, so a mode is entered by the

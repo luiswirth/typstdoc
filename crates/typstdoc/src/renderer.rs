@@ -1,10 +1,7 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 
-use typstdoc_core::{Directories, Error, Fonts, Rendered, Renderer, SyntaxMode};
-
-/// The file a crate writes its preamble in, at its root.
-pub const PREAMBLE: &str = "typstdoc.typ";
+use typstdoc_core::{Directories, Fonts, PREAMBLE, RenderedDoc, Renderer};
 
 thread_local! {
     /// One renderer for the whole build, so that the fonts, the files read and
@@ -12,8 +9,8 @@ thread_local! {
     static RENDERER: RefCell<Renderer> = RefCell::new(new());
 }
 
-pub fn render(source: &str, mode: SyntaxMode) -> Result<Rendered, Error> {
-    RENDERER.with_borrow_mut(|renderer| renderer.render(source, mode))
+pub fn render_doc(doc: &str) -> RenderedDoc {
+    RENDERER.with_borrow_mut(|renderer| renderer.render_doc(doc))
 }
 
 /// The path of the crate's preamble, if the crate wrote one.

@@ -6,6 +6,7 @@
 //! the compiler's state while it renders them, each as its own document, to
 //! HTML together with the resources the page carrying it needs.
 
+mod doc;
 mod error;
 mod files;
 mod fonts;
@@ -15,6 +16,7 @@ mod world;
 
 pub use typst::syntax::SyntaxMode;
 
+pub use self::doc::{Failure, PREAMBLE, RenderedDoc, markdown};
 pub use self::error::Error;
 pub use self::files::{Directories, Files};
 pub use self::fonts::Fonts;
