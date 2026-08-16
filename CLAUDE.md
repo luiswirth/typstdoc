@@ -20,13 +20,18 @@ The README carries the design.
 - **`doc(...)` is rustc's namespace:**
   unknown keys inside it are an error, and a crate-level attribute macro needs unstable
   `custom_inner_attributes`, so the attribute is our own and applies per module.
+- **The crate root is not a macro target:**
+  an inner attribute macro is unstable, and the root is handed the injected prelude,
+  which it cannot emit back.
+  docs.rs builds on nightly only.
 - **The macro runs only under rustdoc**, guarded by `#[cfg_attr(doc, ...)]` at the use site.
 - **Fragments compile separately through one reused `World`:**
   never concatenated into one document and cut apart afterwards.
 - **File resolution stays pluggable:**
   a docs.rs build is sandboxed and offline, so packages cannot be fetched while it runs.
 - **Delimiter handling follows the pulldown-cmark math spec**,
-  so `$` behaves as it does in rustdoc.
+  so `$` behaves as it does in rustdoc,
+  except that spacing inside the delimiters is Typst's and never a second `$`.
 
 ## Verifying
 
@@ -39,3 +44,7 @@ NewCM Sans and NewCM Sans Math are not among them and ship with typstdoc.
 
 `cfg(doc)` distinguishes a documentation build from an ordinary one,
 which is what keeps the macro out of `cargo build`.
+
+What the macro does shows in the pages rustdoc writes rather than in `cargo test`,
+so it is verified from a scratch crate depending on `crates/typstdoc`,
+run with `CARGO_TARGET_DIR` pointed at this repository's target.
