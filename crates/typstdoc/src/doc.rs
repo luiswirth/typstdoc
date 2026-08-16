@@ -1,0 +1,197 @@
+use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+use typstdoc_core::scan;
+
+use crate::renderer;
+
+/// One `#[doc = "..."]` attribute.
+struct Doc {
+    /// Whether the attribute is an inner one, as `//!` writes it.
+    inner: bool,
+    text: String,
+    span: Span,
+}
+
+/// Renders the Typst fragments in the doc comments a token stream holds.
+///
+/// A fragment that does not compile is reported where it was written and left
+/// as it was written, so that the rest of the item still documents.
+pub fn rewrite(item: TokenStream) -> TokenStream {
+    let mut errors = TokenStream::new();
+    let mut out = stream(item, &mut errors);
+    out.extend(errors);
+    out
+}
+
+fn stream(stream: TokenStream, errors: &mut TokenStream) -> TokenStream {
+    let mut out = TokenStream::new();
+    let mut docs = Vec::new();
+    let mut trees = stream.into_iter().peekable();
+
+    while let Some(tree) = trees.next() {
+        if punct(&tree, '#') {
+            let inner = punct_at(trees.peek(), '!');
+            let attribute = trees.clone().nth(usize::from(inner));
+            if let Some(TokenTree::Group(group)) = attribute
+                && let Some(text) = doc_text(&group)
+            {
+                // An inner attribute documents what holds the item and an outer
+                // one the item itself, so the two are never one run.
+                if docs.first().is_some_and(|first: &Doc| first.inner != inner) {
+                    out.extend(rendered(&mut docs, errors));
+                }
+                docs.push(Doc {
+                    inner,
+                    text,
+                    span: group.span(),
+                });
+                trees.nth(usize::from(inner));
+                continue;
+            }
+        }
+
+        out.extend(rendered(&mut docs, errors));
+        out.extend([descend(tree, errors)]);
+    }
+
+    out.extend(rendered(&mut docs, errors));
+    out
+}
+
+/// Rewrites the doc comments inside a group, since an item holds its items in
+/// one.
+fn descend(tree: TokenTree, errors: &mut TokenStream) -> TokenTree {
+    let TokenTree::Group(group) = tree else {
+        return tree;
+    };
+    let mut rewritten = Group::new(group.delimiter(), stream(group.stream(), errors));
+    rewritten.set_span(group.span());
+    TokenTree::Group(rewritten)
+}
+
+/// Emits a run of doc comments with its fragments rendered.
+///
+/// The run is one markdown document, so it is scanned as a whole and emitted
+/// as one attribute. A run holding no fragment is emitted as it was written.
+fn rendered(docs: &mut Vec<Doc>, errors: &mut TokenStream) -> TokenStream {
+    let docs = std::mem::take(docs);
+    let Some(first) = docs.first() else {
+        return TokenStream::new();
+    };
+
+    let doc = markdown(&docs);
+    let mut html = String::new();
+    let mut rest = 0;
+
+    for fragment in scan(&doc) {
+        html.push_str(&doc[rest..fragment.range.start]);
+        match renderer::render(fragment.source, fragment.mode) {
+            Ok(rendered) => html.push_str(&rendered.html),
+            Err(error) => {
+                errors.extend(compile_error(first.span, &error.to_string()));
+                html.push_str(&doc[fragment.range.clone()]);
+            }
+        }
+        rest = fragment.range.end;
+    }
+    html.push_str(&doc[rest..]);
+
+    attribute(first.inner, &html, first.span)
+}
+
+/// Joins a run of doc comments into the markdown rustdoc reads.
+///
+/// A doc comment is one attribute per line, and the indentation its lines
+/// share follows the comment marker rather than the markdown.
+fn markdown(docs: &[Doc]) -> String {
+    let text = docs
+        .iter()
+        .map(|doc| doc.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let indent = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .min()
+        .unwrap_or(0);
+
+    text.lines()
+        .map(|line| line.get(indent..).unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The text of a `#[doc = "..."]` attribute.
+///
+/// Only a string decides anything here, so `#[doc(hidden)]` and a `#[doc]` of
+/// something yet to be evaluated are left to rustdoc.
+fn doc_text(group: &Group) -> Option<String> {
+    if group.delimiter() != Delimiter::Bracket {
+        return None;
+    }
+    let mut trees = group.stream().into_iter();
+    let (name, equals, value, end) = (trees.next()?, trees.next()?, trees.next()?, trees.next());
+
+    match (name, equals, value, end) {
+        (TokenTree::Ident(name), equals, TokenTree::Literal(value), None)
+            if name.to_string() == "doc" && punct(&equals, '=') =>
+        {
+            Some(
+                litrs::StringLit::parse(value.to_string())
+                    .ok()?
+                    .value()
+                    .to_owned(),
+            )
+        }
+        _ => None,
+    }
+}
+
+fn attribute(inner: bool, text: &str, span: Span) -> TokenStream {
+    let mut value = Literal::string(text);
+    value.set_span(span);
+
+    let mut attribute = TokenStream::from(TokenTree::Punct(Punct::new('#', Spacing::Alone)));
+    if inner {
+        attribute.extend([TokenTree::Punct(Punct::new('!', Spacing::Alone))]);
+    }
+    attribute.extend([TokenTree::Group(Group::new(
+        Delimiter::Bracket,
+        [
+            TokenTree::Ident(Ident::new("doc", span)),
+            TokenTree::Punct(Punct::new('=', Spacing::Alone)),
+            TokenTree::Literal(value),
+        ]
+        .into_iter()
+        .collect(),
+    ))]);
+
+    spanned(attribute, span)
+}
+
+fn compile_error(span: Span, message: &str) -> TokenStream {
+    let error: TokenStream = format!("::core::compile_error!({:?});", message)
+        .parse()
+        .expect("a message is a string literal");
+    spanned(error, span)
+}
+
+/// Points every token at the doc comment it came from.
+fn spanned(stream: TokenStream, span: Span) -> TokenStream {
+    stream
+        .into_iter()
+        .map(|mut tree| {
+            tree.set_span(span);
+            tree
+        })
+        .collect()
+}
+
+fn punct(tree: &TokenTree, character: char) -> bool {
+    matches!(tree, TokenTree::Punct(punct) if punct.as_char() == character)
+}
+
+fn punct_at(tree: Option<&TokenTree>, character: char) -> bool {
+    tree.is_some_and(|tree| punct(tree, character))
+}

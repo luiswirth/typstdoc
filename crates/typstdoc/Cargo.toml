@@ -10,4 +10,5 @@ repository.workspace = true
 proc-macro = true
 
 [dependencies]
+litrs = "1.0.0"
 typstdoc-core = { path = "../typstdoc-core", version = "0.0.0" }

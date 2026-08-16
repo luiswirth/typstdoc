@@ -14,8 +14,9 @@ so they stay selectable, reflow with the text, and are read out by screen reader
 
 ## Status
 
-Early, and nothing works yet.
-The compile path is being built first; see the issues.
+Early.
+The path from a doc comment to MathML in a rustdoc page works, one attribute per module.
+The preamble, the math font and the per-page stylesheet do not exist yet; see the issues.
 
 ## Design
 
