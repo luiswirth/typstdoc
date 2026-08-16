@@ -2,7 +2,7 @@ use std::ops::Range;
 use std::path::Path;
 
 use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
-use typstdoc_core::{Renderer, markdown};
+use typstdoc_core::{Error, Renderer, markdown};
 
 pub use typstdoc_core::PREAMBLE;
 
@@ -28,8 +28,8 @@ pub fn render(path: &Path, renderer: &mut Renderer) -> std::io::Result<Vec<u8>> 
         return Ok(source);
     }
 
-    Ok(rewrite(text, renderer, &mut |line, message| {
-        eprintln!("warning: {}:{line}: {message}", path.display())
+    Ok(rewrite(text, renderer, &mut |line, fragment, error| {
+        eprintln!("warning: {}:{line}: {error}\n  in {fragment}", path.display())
     })
     .into_bytes())
 }
@@ -42,7 +42,11 @@ pub fn render(path: &Path, renderer: &mut Renderer) -> std::io::Result<Vec<u8>> 
 /// attribute is written across as many lines as the comments it replaces, so
 /// that everything below it stays on the line it was written on and the source
 /// rustdoc shows still matches the one the crate keeps.
-fn rewrite(source: &str, renderer: &mut Renderer, report: &mut impl FnMut(usize, &str)) -> String {
+pub fn rewrite(
+    source: &str,
+    renderer: &mut Renderer,
+    report: &mut impl FnMut(usize, &str, &Error),
+) -> String {
     let Ok(stream) = source.parse::<TokenStream>() else {
         return source.into();
     };
@@ -59,8 +63,12 @@ fn rewrite(source: &str, renderer: &mut Renderer, report: &mut impl FnMut(usize,
         let doc = markdown(docs[run].iter().map(|doc| doc.text.as_str()));
         let rendered = renderer.render_doc(&doc);
 
+        // A doc comment is one line, so a line of the run is a line of the
+        // source, however far into the run the fragment lies.
+        let first_line = line(source, range.start);
         for failure in &rendered.failures {
-            report(line(source, range.start), &failure.error.to_string());
+            let line = first_line + doc[..failure.range.start].matches('\n').count();
+            report(line, &doc[failure.range.clone()], &failure.error);
         }
         if rendered.markdown == doc {
             continue;
@@ -166,7 +174,7 @@ fn doc_text(group: &Group) -> Option<String> {
 fn attribute(inner: bool, text: &str, lines: usize) -> String {
     let bang = if inner { "!" } else { "" };
     let breaks = "\n".repeat(lines);
-    format!("#{bang}[doc ={breaks}\"{}\"]", escape(text))
+    format!("#{bang}[doc ={breaks} \"{}\"]", escape(text))
 }
 
 /// A string as Rust source writes it.
