@@ -1,5 +1,5 @@
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
-use typstdoc_core::scan;
+use typstdoc_core::markdown;
 
 use crate::renderer;
 
@@ -36,7 +36,7 @@ fn tracked_preamble() -> TokenStream {
     }
     format!(
         "const _: &str = include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/{}\"));",
-        renderer::PREAMBLE
+        typstdoc_core::PREAMBLE
     )
     .parse()
     .expect("a valid item")
@@ -98,48 +98,14 @@ fn rendered(docs: &mut Vec<Doc>, errors: &mut TokenStream) -> TokenStream {
         return TokenStream::new();
     };
 
-    let doc = markdown(&docs);
-    let mut html = String::new();
-    let mut rest = 0;
+    let doc = markdown(docs.iter().map(|doc| doc.text.as_str()));
+    let rendered = renderer::render_doc(&doc);
 
-    for fragment in scan(&doc) {
-        html.push_str(&doc[rest..fragment.range.start]);
-        match renderer::render(fragment.source, fragment.mode) {
-            Ok(rendered) => html.push_str(&rendered.html),
-            Err(error) => {
-                errors.extend(compile_error(first.span, &error.to_string()));
-                html.push_str(&doc[fragment.range.clone()]);
-            }
-        }
-        rest = fragment.range.end;
+    for failure in &rendered.failures {
+        errors.extend(compile_error(first.span, &failure.error.to_string()));
     }
-    html.push_str(&doc[rest..]);
 
-    attribute(first.inner, &html, first.span)
-}
-
-/// Joins a run of doc comments into the markdown rustdoc reads.
-///
-/// A doc comment is one attribute per line, and the indentation its lines
-/// share follows the comment marker rather than the markdown.
-fn markdown(docs: &[Doc]) -> String {
-    let text = docs
-        .iter()
-        .map(|doc| doc.text.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let indent = text
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.len() - line.trim_start().len())
-        .min()
-        .unwrap_or(0);
-
-    text.lines()
-        .map(|line| line.get(indent..).unwrap_or(""))
-        .collect::<Vec<_>>()
-        .join("\n")
+    attribute(first.inner, &rendered.markdown, first.span)
 }
 
 /// The text of a `#[doc = "..."]` attribute.
