@@ -12,17 +12,26 @@ use crate::world::FragmentWorld;
 /// Renders the fragments of one crate.
 pub struct Renderer {
     world: FragmentWorld,
+    preamble: String,
 }
 
 impl Renderer {
-    pub fn new(files: impl Files + 'static, fonts: Fonts) -> Self {
+    /// A renderer over the given files, whose fragments are each compiled with
+    /// the preamble before them.
+    ///
+    /// The preamble is Typst markup, so a `#show` or `#set` rule in it holds
+    /// for every fragment, which an import from inside a fragment could not
+    /// give. A crate that has nothing to say to all of its fragments passes an
+    /// empty one.
+    pub fn new(files: impl Files + 'static, fonts: Fonts, preamble: String) -> Self {
         Self {
             world: FragmentWorld::new(files, fonts),
+            preamble,
         }
     }
 
     pub fn render(&mut self, source: &str, mode: SyntaxMode) -> Result<Rendered, Error> {
-        self.world.set_main(wrap(source, mode));
+        self.world.set_main(wrap(&self.preamble, source, mode));
         let compiled = typst::compile::<HtmlDocument>(&self.world);
         let document = compiled.output.map_err(Error::Compile)?;
         extract(&document)
@@ -48,17 +57,19 @@ pub struct Assets {
     pub styles: Vec<EcoString>,
 }
 
-/// Wraps a fragment into markup.
+/// Wraps a fragment into the markup that is compiled.
 ///
 /// A Typst file is markup at its top level, so a mode is entered by the
-/// delimiters that enter it. The source keeps whatever spacing it was written
-/// with, which is what tells `$x$` from `$ x $`.
-fn wrap(source: &str, mode: SyntaxMode) -> String {
-    match mode {
+/// delimiters that enter it, and the preamble, being markup itself, stands
+/// before them. The fragment keeps whatever spacing it was written with, which
+/// is what tells `$x$` from `$ x $`.
+fn wrap(preamble: &str, source: &str, mode: SyntaxMode) -> String {
+    let fragment = match mode {
         SyntaxMode::Markup => source.into(),
         SyntaxMode::Math => format!("${source}$"),
         SyntaxMode::Code => format!("#{{{source}}}"),
-    }
+    };
+    format!("{preamble}\n{fragment}")
 }
 
 /// Reads a fragment out of a compiled document.

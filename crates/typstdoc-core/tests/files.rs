@@ -9,7 +9,7 @@ fn fixture(name: &str) -> PathBuf {
 }
 
 fn render(files: impl Files + 'static, source: &str) -> Result<String, String> {
-    Renderer::new(files, Fonts::embedded())
+    Renderer::new(files, Fonts::embedded(), String::new())
         .render(source, SyntaxMode::Markup)
         .map(|rendered| rendered.html)
         .map_err(|error| error.to_string())
