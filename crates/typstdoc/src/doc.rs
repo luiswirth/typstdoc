@@ -18,8 +18,28 @@ struct Doc {
 pub fn rewrite(item: TokenStream) -> TokenStream {
     let mut errors = TokenStream::new();
     let mut out = stream(item, &mut errors);
+    out.extend(tracked_preamble());
     out.extend(errors);
     out
+}
+
+/// Makes the preamble a source of the crate, so that rustc runs the macro
+/// again once it changes.
+///
+/// A file a macro reads is invisible to rustc otherwise, and the only stable
+/// way to name one is to include it. A preamble that is not there yet cannot
+/// be named, so a crate that gains one first has to be built for another
+/// reason.
+fn tracked_preamble() -> TokenStream {
+    if renderer::preamble().is_none() {
+        return TokenStream::new();
+    }
+    format!(
+        "const _: &str = include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/{}\"));",
+        renderer::PREAMBLE
+    )
+    .parse()
+    .expect("a valid item")
 }
 
 fn stream(stream: TokenStream, errors: &mut TokenStream) -> TokenStream {
