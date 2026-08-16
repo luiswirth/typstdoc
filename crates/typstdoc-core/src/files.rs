@@ -43,6 +43,30 @@ impl Files for Directories {
 }
 
 impl Directories {
+    /// The package roots Typst reads on this machine, and no project root.
+    ///
+    /// An installed package takes precedence over a downloaded one, and each
+    /// root lies where Typst's environment says or under its data and cache
+    /// directory. A root that is not there resolves nothing, which is what a
+    /// sandboxed build sees.
+    pub fn installed() -> Self {
+        let packages = [
+            ("TYPST_PACKAGE_PATH", dirs::data_dir()),
+            ("TYPST_PACKAGE_CACHE_PATH", dirs::cache_dir()),
+        ]
+        .into_iter()
+        .filter_map(|(variable, directory)| match std::env::var_os(variable) {
+            Some(path) => Some(PathBuf::from(path)),
+            None => Some(directory?.join("typst").join("packages")),
+        })
+        .collect();
+
+        Self {
+            project: None,
+            packages,
+        }
+    }
+
     /// The directories a file with the given root may lie in, in search order.
     fn roots(&self, root: &VirtualRoot) -> Vec<PathBuf> {
         match root {

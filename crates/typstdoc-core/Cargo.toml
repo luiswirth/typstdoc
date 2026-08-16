@@ -11,6 +11,7 @@ default = ["embedded-fonts"]
 embedded-fonts = ["typst-assets/fonts"]
 
 [dependencies]
+dirs = "6.0.0"
 pulldown-cmark = { version = "0.13.4", default-features = false }
 typst = "0.15.1"
 typst-assets = "0.15.1"
