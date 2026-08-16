@@ -1,0 +1,12 @@
+[package]
+name = "cargo-typstdoc"
+description = "Documents a crate with the Typst in its doc comments rendered"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+litrs = "1.0.0"
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+typstdoc-core = { path = "../typstdoc-core", version = "0.0.0" }
