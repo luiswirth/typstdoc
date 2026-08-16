@@ -12,7 +12,7 @@ fn render(source: &str, mode: SyntaxMode) -> String {
 fn math_is_mathml() {
     assert_eq!(
         render("x^2", SyntaxMode::Math),
-        "<p><math><msup><mi>𝑥</mi><mn>2</mn></msup></math></p>"
+        "<math><msup><mi>𝑥</mi><mn>2</mn></msup></math>"
     );
 }
 
@@ -23,23 +23,32 @@ fn spacing_decides_inline_from_block() {
 }
 
 #[test]
+fn a_fragment_carries_no_paragraph_of_its_own() {
+    assert_eq!(render("x", SyntaxMode::Math), "<math><mi>𝑥</mi></math>");
+    assert_eq!(
+        render("one\n\ntwo", SyntaxMode::Markup),
+        "<p>one</p><p>two</p>"
+    );
+}
+
+#[test]
 fn markup_is_markup() {
     assert_eq!(
         render("*bold* and $x$", SyntaxMode::Markup),
-        "<p><strong>bold</strong> and <math><mi>𝑥</mi></math></p>"
+        "<strong>bold</strong> and <math><mi>𝑥</mi></math>"
     );
 }
 
 #[test]
 fn code_is_evaluated() {
-    assert_eq!(render(r#"[#(1 + 1)]"#, SyntaxMode::Code), "<p>2</p>");
+    assert_eq!(render(r#"[#(1 + 1)]"#, SyntaxMode::Code), "2");
 }
 
 #[test]
 fn empty_renders_to_what_the_mode_reads_as_empty() {
     assert_eq!(render("", SyntaxMode::Markup), "");
     assert_eq!(render("", SyntaxMode::Code), "");
-    assert_eq!(render("", SyntaxMode::Math), "<p><math></math></p>");
+    assert_eq!(render("", SyntaxMode::Math), "<math></math>");
 }
 
 #[test]
