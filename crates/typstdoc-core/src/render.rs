@@ -69,6 +69,7 @@ fn extract(document: &HtmlDocument) -> Result<Rendered, Error> {
     let root = document.root();
     let head = child(root, tag::head).ok_or(Error::UnexpectedOutput)?;
     let body = child(root, tag::body).ok_or(Error::UnexpectedOutput)?;
+    let body = unparagraph(body);
 
     let styles = head
         .children
@@ -103,6 +104,26 @@ fn encode(document: &HtmlDocument, element: &HtmlElement) -> Result<String, Erro
         .and_then(|rest| rest.strip_suffix(&format!("</{tag}>")))
         .map(String::from)
         .ok_or(Error::UnexpectedOutput)
+}
+
+/// The element whose children are the fragment.
+///
+/// Typst writes a whole document, so it puts inline content in the paragraph a
+/// page needs. A fragment is spliced into a page that has one already, so that
+/// paragraph belongs to the document around it rather than to the fragment.
+///
+/// A tag is where the document introspects itself and writes nothing, so it is
+/// not what makes a fragment more than its paragraph.
+fn unparagraph(body: &HtmlElement) -> &HtmlElement {
+    let mut content = body
+        .children
+        .iter()
+        .filter(|node| !matches!(node, HtmlNode::Tag(_)));
+
+    match (content.next(), content.next()) {
+        (Some(HtmlNode::Element(paragraph)), None) if paragraph.tag == tag::p => paragraph,
+        _ => body,
+    }
 }
 
 fn child(element: &HtmlElement, tag: HtmlTag) -> Option<&HtmlElement> {
