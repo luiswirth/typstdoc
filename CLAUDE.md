@@ -10,6 +10,9 @@ The README carries the design.
   Everything lives here.
 - `crates/typstdoc/`:
   the proc macro over it, thin, because a proc-macro crate can export nothing else.
+- `crates/cargo-typstdoc/`:
+  the `cargo typstdoc` command, which stands in for rustdoc and renders a copy
+  of a package's sources.
 
 ## Invariants
 
@@ -25,6 +28,11 @@ The README carries the design.
   which it cannot emit back.
   docs.rs builds on nightly only.
 - **The macro runs only under rustdoc**, guarded by `#[cfg_attr(doc, ...)]` at the use site.
+- **A rendered source keeps the line every item stood on**,
+  since the pages rustdoc writes point into it.
+- **Cargo is told a typstdoc build apart by the flags rustdoc is called with**,
+  which is the only thing it watches besides the sources,
+  so what a build rests on beyond them is stamped into them.
 - **Fragments compile separately through one reused `World`:**
   never concatenated into one document and cut apart afterwards.
 - **File resolution stays pluggable:**
