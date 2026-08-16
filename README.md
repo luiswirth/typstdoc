@@ -15,8 +15,34 @@ so they stay selectable, reflow with the text, and are read out by screen reader
 ## Status
 
 Early.
-The path from a doc comment to MathML in a rustdoc page works, one attribute per module.
+The path from a doc comment to MathML in a rustdoc page works, both ways in.
 The math font and the per-page stylesheet do not exist yet; see the issues.
+
+## Use
+
+Two front ends over one library.
+
+`cargo typstdoc` documents a crate that says nothing about typstdoc:
+
+```
+cargo typstdoc --no-deps
+```
+
+It runs `cargo doc` with itself in rustdoc's place.
+Each time cargo calls it, it copies the package,
+renders the fragments in the doc comments of the copy,
+and hands rustdoc the copy.
+The crate keeps no trace of typstdoc, and its root is reached like every other module.
+
+The attribute renders the doc comments of the item it is written on:
+
+```rust
+#[cfg_attr(doc, typstdoc::typstdoc)]
+mod hodge {}
+```
+
+Under `cfg_attr(doc, ...)` it is stripped in an ordinary build and runs only when rustdoc does.
+It is the way in for docs.rs, which runs `cargo doc` itself.
 
 ## Design
 
@@ -33,7 +59,7 @@ a stylesheet and a math font,
 which are collected per page instead of emitted everywhere.
 
 `typstdoc-core` holds all of this and is an ordinary library.
-`typstdoc` is the proc macro over it.
+`typstdoc` is the proc macro over it, and `cargo-typstdoc` the command.
 
 ## Preamble
 
@@ -46,6 +72,8 @@ so show rules, `#let` shorthands and imported notation hold across all doc comme
 ```
 
 It is an ordinary Typst file, so `typst compile` checks it on its own.
+A workspace is one body of notation,
+so the command looks for it above the package as well and the nearest one holds.
 
 ## Fonts
 
@@ -69,15 +97,7 @@ while its own future possibilities name `doc(syntax = "typst")` as an extension 
 Mirroring its design keeps the question open.
 
 typstdoc stays out of tree, since `doc(...)` is rustc's namespace,
-so the attribute is its own and applies per module:
-
-```rust
-#[cfg_attr(doc, typstdoc::typstdoc)]
-mod hodge {}
-```
-
-Under `cfg_attr(doc, ...)` the macro is stripped in ordinary builds
-and runs only when rustdoc does.
+so the attribute is its own and applies per module.
 
 Inline and display math follow Typst's rule, spacing inside the delimiters,
 rather than TeX's `$$`.
