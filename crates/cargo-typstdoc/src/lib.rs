@@ -10,6 +10,7 @@ pub mod cargo;
 pub mod shim;
 pub mod source;
 pub mod stage;
+pub mod theme;
 
 /// Whatever went wrong, which is only ever reported and never handled.
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

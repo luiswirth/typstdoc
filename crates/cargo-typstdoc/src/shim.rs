@@ -4,6 +4,7 @@ use std::process::{Command, ExitCode, ExitStatus};
 
 use crate::Result;
 use crate::stage;
+use crate::theme;
 
 /// Set on the `cargo doc` this binary runs, so that the same binary knows when
 /// it is the one being run as rustdoc.
@@ -26,7 +27,9 @@ pub fn run() -> Result<ExitCode> {
 
     if let Some(index) = input(&args) {
         let root = PathBuf::from(&args[index]);
-        args[index] = stage::render(&root)?.into_os_string();
+        let staged = stage::render(&root)?;
+        args[index] = staged.root.into_os_string();
+        theme::extend(&mut args, &staged.directory)?;
     }
 
     let status = Command::new(rustdoc()?)

@@ -2391,6 +2391,7 @@ dependencies = [
 name = "typstdoc-core"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "dirs",
  "pulldown-cmark",
  "typst",
