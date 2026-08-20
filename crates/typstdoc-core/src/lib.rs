@@ -12,6 +12,7 @@ mod files;
 mod fonts;
 mod render;
 mod scan;
+mod style;
 mod world;
 
 pub use typst::syntax::SyntaxMode;
@@ -21,4 +22,5 @@ pub use self::error::Error;
 pub use self::files::{Directories, Files};
 pub use self::fonts::Fonts;
 pub use self::render::{Assets, Rendered, Renderer};
+pub use self::style::stylesheet;
 pub use self::scan::{Fragment, scan};

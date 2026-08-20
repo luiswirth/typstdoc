@@ -77,13 +77,22 @@ so the command looks for it above the package as well and the nearest one holds.
 
 ## Fonts
 
-Typst embeds New Computer Modern and its math font, Libertinus Serif and DejaVu Sans Mono.
-NewCM Sans and NewCM Sans Math ship with typstdoc.
-
-Which font a page uses is CSS, configured under `[package.metadata.typstdoc]`.
 MathML encodes the structure of an equation and leaves its appearance to the browser,
 so Typst's output is the same whatever `#set text(font: ...)` says,
 and setting a font in the preamble has no effect on it.
+A page left to itself is set in whatever the browser resolves the `math` generic to.
+
+Which font a page uses is therefore CSS.
+`cargo typstdoc` hands rustdoc a stylesheet that names New Computer Modern Math
+and carries the font itself, taken from the ones Typst embeds.
+rustdoc copies that stylesheet to the root of the documentation
+and links it from every page at that page's depth,
+which is what lets one stylesheet reach pages lying at different depths.
+The font travels inside it as a data URI,
+since a stylesheet is the only thing a documentation build can hand rustdoc.
+
+A build that renders through the macro rather than through the command
+has no way to place that stylesheet, docs.rs among them.
 
 ## Relation to rustdoc
 

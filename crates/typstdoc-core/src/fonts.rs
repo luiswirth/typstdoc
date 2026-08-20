@@ -24,7 +24,7 @@ impl Fonts {
     ///
     /// Empty unless the `embedded-fonts` feature is on.
     pub fn embedded() -> Self {
-        let fonts = typst_assets::fonts()
+        let fonts = embedded_files()
             .flat_map(|data| Font::iter(Bytes::new(data)))
             .collect();
         Self::new(fonts)
@@ -37,4 +37,11 @@ impl Fonts {
     pub fn get(&self, index: usize) -> Option<Font> {
         self.fonts.get(index).cloned()
     }
+}
+
+/// The font files compiled into the binary.
+///
+/// Empty unless the `embedded-fonts` feature is on.
+pub(crate) fn embedded_files() -> impl Iterator<Item = &'static [u8]> {
+    typst_assets::fonts()
 }

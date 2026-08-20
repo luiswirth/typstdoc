@@ -8,13 +8,21 @@ use crate::Result;
 use crate::shim;
 use crate::source;
 
+/// A package that was copied, with the Typst in the doc comments of its
+/// sources rendered.
+pub struct Staged {
+    /// The copy of the package.
+    pub directory: PathBuf,
+    /// Where the crate root lies in it.
+    pub root: PathBuf,
+}
+
 /// Copies the package a crate root belongs to, with the Typst in the doc
-/// comments of its sources rendered, and answers where the crate root lies in
-/// the copy.
+/// comments of its sources rendered.
 ///
 /// The whole package is copied rather than its sources alone, so that a file a
 /// source includes from beside it is there as well.
-pub fn render(root: &Path) -> Result<PathBuf> {
+pub fn render(root: &Path) -> Result<Staged> {
     let root = root.canonicalize()?;
     let package =
         package(&root).ok_or_else(|| format!("no package holds {}", root.display()))?;
@@ -23,7 +31,10 @@ pub fn render(root: &Path) -> Result<PathBuf> {
     let mut renderer = renderer(package)?;
     copy(package, &staged, &mut renderer)?;
 
-    Ok(staged.join(root.strip_prefix(package)?))
+    Ok(Staged {
+        root: staged.join(root.strip_prefix(package)?),
+        directory: staged,
+    })
 }
 
 /// The directory of the package a file belongs to.

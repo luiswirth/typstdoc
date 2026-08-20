@@ -10,6 +10,7 @@ mod cargo;
 mod shim;
 mod source;
 mod stage;
+mod theme;
 
 use std::process::ExitCode;
 
