@@ -20,6 +20,9 @@ The README carries the design.
   Typst's HTML export emits the same MathML whatever `#set text(font: ...)` says,
   and whatever fonts the world holds,
   so appearance is a CSS concern and never a Typst one.
+- **A stylesheet is the only thing a documentation build hands rustdoc**,
+  so the font it names travels inside it,
+  and rustdoc is what links it from every page at that page's own depth.
 - **`doc(...)` is rustc's namespace:**
   unknown keys inside it are an error, and a crate-level attribute macro needs unstable
   `custom_inner_attributes`, so the attribute is our own and applies per module.
@@ -47,8 +50,8 @@ Typst's HTML export is experimental and needs its feature flag:
 
     TYPST_FEATURES=html typst compile --format html eq.typ eq.html
 
-`typst fonts --ignore-system-fonts` lists what the library embeds.
-NewCM Sans and NewCM Sans Math are not among them and ship with typstdoc.
+`typst fonts --ignore-system-fonts` lists what the library embeds,
+which is where the math font a page is set in comes from.
 
 `cfg(doc)` distinguishes a documentation build from an ordinary one,
 which is what keeps the macro out of `cargo build`.
