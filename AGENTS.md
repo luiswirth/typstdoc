@@ -1,6 +1,9 @@
+---
+description: "Typst notation in Rust doc comments, compiled to MathML when rustdoc runs. Use when working on typstdoc, or on math in Rust doc comments."
+---
+
 # typstdoc
 
-Typst notation in Rust doc comments, compiled to MathML when rustdoc runs.
 The README carries the design.
 
 ## Layout
